@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@pythnetwork/hermes-client": "1.1.0",
     "@zerodev/ecdsa-validator": "^5.3.3",
     "@zerodev/sdk": "^5.3.26",
     "axios": "^1.7.7",

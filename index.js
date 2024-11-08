@@ -2,9 +2,8 @@ require('dotenv').config();
 const { HermesClient } = require('@pythnetwork/hermes-client');
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
-const crypto = require('crypto');
-const { Chain, createPublicClient, http, Hex, parseUnits, maxUint128, stringToBytes, } = require('viem');
-const { privateKeyToAccount } = require('viem/accounts');
+const {stringToBytes, } = require('viem');
+//const { privateKeyToAccount } = require('viem/accounts');
 const { ethers } = require("ethers");
 
 
@@ -14,7 +13,7 @@ const TESTNET_RPC = 'https://rpc-polynomial-network-testnet-x0tryg8u1c.t.conduit
 const polyContractAddress = '0x52Fdc981472485232587E334c5Ca27F241CbA9AA';
 const provider = new ethers.JsonRpcProvider(TESTNET_RPC);
 const signer = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-const accountId =  "170141183460469231731687303715884105786";
+const accountId =  "170141183460469231731687303715884105788";
 
 // Initialize the HermesClient with the desired endpoint
 const hermes = new HermesClient('https://hermes.pyth.network');
