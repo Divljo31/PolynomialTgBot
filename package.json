@@ -1,0 +1,22 @@
+{
+  "name": "polynomial-bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@zerodev/ecdsa-validator": "^5.3.3",
+    "@zerodev/sdk": "^5.3.26",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "node-fetch": "^3.3.2",
+    "node-telegram-bot-api": "^0.66.0",
+    "permissionless": "^0.1.45",
+    "viem": "2.17.x"
+  }
+}
