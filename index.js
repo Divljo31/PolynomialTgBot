@@ -33,6 +33,7 @@ const polyContractABI = [
   "error AcceptablePriceExceeded(uint256 fillPrice, uint256 acceptablePrice)",
   "error AcceptablePriceNotExceeded(uint256 fillPrice, uint256 acceptablePrice)",
   "error InsufficientMargin(int256 availableMargin, uint256 minMargin)",
+  "function getOpenPosition(uint128 accountId, uint128 marketId) external view returns (int256 totalPnl, int256 accruedFunding, int128 positionSize, uint256 owedInterest)",
   "function commitOrder((uint128 marketId, uint128 accountId, int128 sizeDelta, uint128 settlementStrategyId, uint256 acceptablePrice, bytes32 trackingCode, address referrer)) external returns ((uint256 commitmentTime, uint128 marketId, uint128 accountId, int128 sizeDelta, uint128 settlementStrategyId, uint256 acceptablePrice, bytes32 trackingCode, address referrer ), uint256 fees)",
   "function getOrder(uint128 accountId) external view returns ((uint128 marketId, uint128 accountId, int128 sizeDelta, uint128 settlementStrategyId, uint256 acceptablePrice, bytes32 trackingCode, address referrer))"
 ];
@@ -157,7 +158,7 @@ async function modifyCollateral(amountDelta){
     return `Collateral modified successfully. Transaction hash: ${tx.hash}`;
 
 } catch (error) {
-    return `Failed to add collateral: ${error.message}`;
+    return `Failed to modify collateral: ${error.message}`;
   }
 }
 
@@ -198,6 +199,19 @@ async function getAccountOpenPositions(accountId){
   }
 }
 
+//returns openPosition these are the values totalPnl, accruedFunding, positionSize, owedInterest
+async function getAccountOpenPosition(accountId, marketId){
+  try{
+
+    const openPosition = await polyContract.getOpenPosition(accountId, 200n);
+    return openPosition;
+
+} catch (error) {
+
+    return `Failed to get positions: ${error.message}`;
+  }
+}
+
 //Initialialize bot 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
@@ -227,9 +241,8 @@ bot.onText(/\/create_account/, async (msg) => {
 bot.onText(/\/open_positions/, async (msg) => {
   const chatId = msg.chat.id;
   try {
-    const openPositions = await getAccountOpenPositions(accountId);
-    console.log(openPositions);
-    bot.sendMessage(chatId, `Returned positions: ${openPositions}`);
+    const openPosition = await getAccountOpenPosition(accountId, 200n);
+    bot.sendMessage(chatId, `Returned positions: ${openPosition}`);
   } catch (error) {
     bot.sendMessage(chatId, `Failed to return positions: ${error.message}`);
   }
@@ -247,6 +260,19 @@ bot.onText(/\/get_orders/, async (msg) => {
   }
 });
 
+// bot function that checks balance
+bot.onText(/\/get_balance/, async (msg) => {
+  const chatId = msg.chat.id;
+  try {
+    const balance = await getAvailableMargin(accountId);
+    bot.sendMessage(chatId, `Available balance: ${balance}`);
+  } catch (error) {
+    bot.sendMessage(chatId, `Failed to get balance: ${error.message}`);
+  }
+});
+
+
+
 //bot function that calls modifyCollateral function to addCollateral to account
 bot.onText(/\/add_collateral (\d+)/, async (msg, match) => {
   const chatId = msg.chat.id;
@@ -254,7 +280,7 @@ bot.onText(/\/add_collateral (\d+)/, async (msg, match) => {
 
   try {
 
-    const tx = modifyCollateral(amount);
+    const tx = await modifyCollateral(amount);
     bot.sendMessage(chatId, `Collateral succesfully added`);
 
   } catch (error) {
@@ -270,13 +296,12 @@ bot.onText(/\/withdraw_collateral (\d+)/, async (msg, match) => {
   let amount = BigInt(parseInt(match[1])) * BigInt(10 ** 18) * BigInt(-1); // Converts 1 to 1 * 10^18
   try {
 
-    console.log(amount);
-    const tx = modifyCollateral(amount);
+    const tx = await modifyCollateral(accountId, 0, amount);
     bot.sendMessage(chatId, `Collateral succesfully withdrawn`);
 
   } catch (error) {
 
-    bot.sendMessage(chatId, `Failed to withdraw collateral}`);
+    bot.sendMessage(chatId, `Failed to withdraw collateral`);
 
   }
 });
@@ -296,13 +321,14 @@ bot.onText(/\/place_order (\d+) (\d+) (\d+)/, async (msg, match) => {
         const marketId = BigInt(parseInt(match[2]) * 100); // Converts 2 to 200n
 
         let sizeDelta = BigInt(match[3]) * BigInt(10 ** 10); // Converts 1 to 1 * 10^18
+        let acceptablePrice = await fetchPriceUpdate() - 10000000000; // current price - 100usd
         if(orderType === 2){
           sizeDelta = sizeDelta * BigInt(-1);
+          acceptablePrice = acceptablePrice + 20000000000;
         }
         
         // Additional parameters for commitmentData
         const settlementStrategyId = 0n; 
-        const acceptablePrice = await fetchPriceUpdate() - 10000000000; // current price - 100usd
         const trackingCode = stringToBytes("BOT", {size: 32}); // Tracking code for trades from the homepage
         const referrer = "0xCdC9D1569233F0503fc6EEB6A1A64E7a34F2D669"; 
 
@@ -331,8 +357,3 @@ bot.onText(/\/place_order (\d+) (\d+) (\d+)/, async (msg, match) => {
     }
 });
 
-
-
-// bot.on('message', (msg) => {
-//     console.log('Message received:', msg); // Log received messages to the console
-// });
