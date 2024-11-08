@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "ethers": "^6.13.4",
     "@pythnetwork/hermes-client":"^1.1.0",
     "axios": "^1.7.7",
     "dotenv": "^16.4.5",
