@@ -19,7 +19,7 @@ const accountId =  "170141183460469231731687303715884105786";
 // Initialize the HermesClient with the desired endpoint
 const hermes = new HermesClient('https://hermes.pyth.network');
 // Define the price feed ID for ETH/USD
-const ethFeed = '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace';
+const ethFeed = '0xff61491a931112ddf1bd8147cd1b6ss41375f79f5825126d665480874634fd0ace';
 
 // Define the ABI for the PolynomialContract interface
 const polyContractABI = [
@@ -217,6 +217,7 @@ const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
 
 // bot function that says hello 
+// example call /hello bot returns hello message
 bot.onText(/\/hello (.+)/, async (msg, match) => {
     const chatId = msg.chat.id;
     const name = msg.from.first_name || "there"; // Get the user's first name
@@ -227,6 +228,8 @@ bot.onText(/\/hello (.+)/, async (msg, match) => {
 });
 
 // bot function that triggers createAccount function and creates trading account
+// example call /create_account creates trading account
+
 bot.onText(/\/create_account/, async (msg) => {
     const chatId = msg.chat.id;
     try {
@@ -238,6 +241,8 @@ bot.onText(/\/create_account/, async (msg) => {
 });
 
 // bot function that fetches open positions
+// example call /open_position fetches current open position for account on eth market
+
 bot.onText(/\/open_positions/, async (msg) => {
   const chatId = msg.chat.id;
   try {
@@ -249,6 +254,7 @@ bot.onText(/\/open_positions/, async (msg) => {
 });
 
 // bot function that gets orders
+// example call /get_orders fetches currently unsettled orders 
 bot.onText(/\/get_orders/, async (msg) => {
   const chatId = msg.chat.id;
   try {
@@ -261,6 +267,7 @@ bot.onText(/\/get_orders/, async (msg) => {
 });
 
 // bot function that checks balance
+// example call /get_balance returns  available margin balance
 bot.onText(/\/get_balance/, async (msg) => {
   const chatId = msg.chat.id;
   try {
@@ -273,7 +280,8 @@ bot.onText(/\/get_balance/, async (msg) => {
 
 
 
-//bot function that calls modifyCollateral function to addCollateral to account
+// bot function that calls modifyCollateral function to addCollateral to account
+// example call /add_collateral 1 -> adds 1fxUSD to collateral
 bot.onText(/\/add_collateral (\d+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   let amount = BigInt(parseInt(match[1])) * BigInt(10 ** 18); // Converts 1 to 1 * 10^18
@@ -290,7 +298,8 @@ bot.onText(/\/add_collateral (\d+)/, async (msg, match) => {
   }
 });
 
-//bot function that calls modifyCollateral function to withdrawCollateral to account
+// bot function that calls modifyCollateral function to withdrawCollateral to account
+// example call /withdraw_collateral 1 -> withdraws 1 usd from margin
 bot.onText(/\/withdraw_collateral (\d+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   let amount = BigInt(parseInt(match[1])) * BigInt(10 ** 18) * BigInt(-1); // Converts 1 to 1 * 10^18
