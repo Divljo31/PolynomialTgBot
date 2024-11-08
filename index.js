@@ -2,23 +2,23 @@ require('dotenv').config();
 const { HermesClient } = require('@pythnetwork/hermes-client');
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
-const {stringToBytes, } = require('viem');
-//const { privateKeyToAccount } = require('viem/accounts');
+const crypto = require('crypto');
+const { Chain, createPublicClient, http, Hex, parseUnits, maxUint128, stringToBytes, } = require('viem');
+const { privateKeyToAccount } = require('viem/accounts');
 const { ethers } = require("ethers");
 
 
 //Global constants
-
 const TESTNET_RPC = 'https://rpc-polynomial-network-testnet-x0tryg8u1c.t.conduit.xyz';
 const polyContractAddress = '0x52Fdc981472485232587E334c5Ca27F241CbA9AA';
 const provider = new ethers.JsonRpcProvider(TESTNET_RPC);
 const signer = new ethers.Wallet(process.env.WALLET_PRIVATE_KEY, provider);
-const accountId =  "170141183460469231731687303715884105788";
+const accountId =  "170141183460469231731687303715884105787";
 
 // Initialize the HermesClient with the desired endpoint
 const hermes = new HermesClient('https://hermes.pyth.network');
 // Define the price feed ID for ETH/USD
-const ethFeed = '0xff61491a931112ddf1bd8147cd1b6ss41375f79f5825126d665480874634fd0ace';
+const ethFeed = '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace';
 
 // Define the ABI for the PolynomialContract interface
 const polyContractABI = [
@@ -29,9 +29,7 @@ const polyContractABI = [
   "function getMarkets() external view returns (uint256[] memory marketIds)",
   "function metadata(uint128 marketId) external view returns (string memory name, string memory symbol)",
   "function getAvailableMargin(uint128 accountId) external view returns (int256 availableMargin)",
-  "error AcceptablePriceExceeded(uint256 fillPrice, uint256 acceptablePrice)",
-  "error AcceptablePriceNotExceeded(uint256 fillPrice, uint256 acceptablePrice)",
-  "error InsufficientMargin(int256 availableMargin, uint256 minMargin)",
+  "function requiredMarginForOrder(uint128 marketId,uint128 accountId,int128 sizeDelta) external view returns (uint256 requiredMargin)",
   "function getOpenPosition(uint128 accountId, uint128 marketId) external view returns (int256 totalPnl, int256 accruedFunding, int128 positionSize, uint256 owedInterest)",
   "function commitOrder((uint128 marketId, uint128 accountId, int128 sizeDelta, uint128 settlementStrategyId, uint256 acceptablePrice, bytes32 trackingCode, address referrer)) external returns ((uint256 commitmentTime, uint128 marketId, uint128 accountId, int128 sizeDelta, uint128 settlementStrategyId, uint256 acceptablePrice, bytes32 trackingCode, address referrer ), uint256 fees)",
   "function getOrder(uint128 accountId) external view returns ((uint128 marketId, uint128 accountId, int128 sizeDelta, uint128 settlementStrategyId, uint256 acceptablePrice, bytes32 trackingCode, address referrer))"
@@ -55,6 +53,20 @@ const fxUSDContract = new ethers.Contract(
   fxUSDABI,
   signer
 );
+
+// Function to create wallet from Telegram ID
+function createWalletFromTelegramID(telegramId) {
+  // Hash the Telegram ID to get a consistent, unique seed
+  const hash = ethers.keccak256(ethers.toUtf8Bytes(telegramId.toString()));
+
+  // Use the hash to create a new wallet
+  const wallet = new ethers.Wallet(hash);
+  
+  return {
+      address: wallet.address
+  };
+}
+
 
 // Function to approve spending fxUSD
 async function approveSpending(spenderAddress, amount) {
@@ -112,6 +124,7 @@ async function getAvailableMargin(accountId){
   try{
 
     const availableMargin = await polyContract.getAvailableMargin(accountId);
+    console.log(availableMargin);
     return availableMargin;
 
   } catch (error){
@@ -203,6 +216,7 @@ async function getAccountOpenPosition(accountId, marketId){
   try{
 
     const openPosition = await polyContract.getOpenPosition(accountId, 200n);
+    console.log(openPosition);
     return openPosition;
 
 } catch (error) {
@@ -211,24 +225,37 @@ async function getAccountOpenPosition(accountId, marketId){
   }
 }
 
+//function that calculates required margin for opening trade
+async function getRequiredMarginForOrder(){
+  try{
+
+    const requiredMargin = await polyContract.requiredMarginForOrder(accountId, 200n, 1000000000000000000n)
+    console.log(requiredMargin);
+    return requiredMargin;
+
+} catch (error) {
+
+    return `Failed to get positions: ${error.message}`;
+  }  
+}
+
 //Initialialize bot 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
 
 // bot function that says hello 
-// example call /hello bot returns hello message
-bot.onText(/\/hello (.+)/, async (msg, match) => {
+bot.onText(/\/hello/, async (msg) => {
     const chatId = msg.chat.id;
     const name = msg.from.first_name || "there"; // Get the user's first name
+    const tgID = msg.from.id;
 
     // Send a greeting message
+    
     bot.sendMessage(chatId, `Hello, ${name}! How can I help you today?`);
     
 });
 
 // bot function that triggers createAccount function and creates trading account
-// example call /create_account creates trading account
-
 bot.onText(/\/create_account/, async (msg) => {
     const chatId = msg.chat.id;
     try {
@@ -240,12 +267,10 @@ bot.onText(/\/create_account/, async (msg) => {
 });
 
 // bot function that fetches open positions
-// example call /open_position fetches current open position for account on eth market
-
-bot.onText(/\/open_positions/, async (msg) => {
+bot.onText(/\/get_positions/, async (msg) => {
   const chatId = msg.chat.id;
   try {
-    const openPosition = await getAccountOpenPosition(accountId, 200n);
+    const openPosition = await getAccountOpenPosition(accountId, 100n);
     bot.sendMessage(chatId, `Returned positions: ${openPosition}`);
   } catch (error) {
     bot.sendMessage(chatId, `Failed to return positions: ${error.message}`);
@@ -253,12 +278,10 @@ bot.onText(/\/open_positions/, async (msg) => {
 });
 
 // bot function that gets orders
-// example call /get_orders fetches currently unsettled orders 
 bot.onText(/\/get_orders/, async (msg) => {
   const chatId = msg.chat.id;
   try {
     const order = await getOrder(accountId);
-    console.log(order);
     bot.sendMessage(chatId, `Returned order: ${order}`);
   } catch (error) {
     bot.sendMessage(chatId, `Failed to get orders: ${error.message}`);
@@ -266,7 +289,6 @@ bot.onText(/\/get_orders/, async (msg) => {
 });
 
 // bot function that checks balance
-// example call /get_balance returns  available margin balance
 bot.onText(/\/get_balance/, async (msg) => {
   const chatId = msg.chat.id;
   try {
@@ -279,14 +301,13 @@ bot.onText(/\/get_balance/, async (msg) => {
 
 
 
-// bot function that calls modifyCollateral function to addCollateral to account
-// example call /add_collateral 1 -> adds 1fxUSD to collateral
+//bot function that calls modifyCollateral function to addCollateral to account
 bot.onText(/\/add_collateral (\d+)/, async (msg, match) => {
   const chatId = msg.chat.id;
-  let amount = BigInt(parseInt(match[1])) * BigInt(10 ** 18); // Converts 1 to 1 * 10^18
+  let amount = ethers.parseUnits(match[1], 18); // Converts 1 to 1 * 10^18
 
   try {
-
+  
     const tx = await modifyCollateral(amount);
     bot.sendMessage(chatId, `Collateral succesfully added`);
 
@@ -297,14 +318,14 @@ bot.onText(/\/add_collateral (\d+)/, async (msg, match) => {
   }
 });
 
-// bot function that calls modifyCollateral function to withdrawCollateral to account
-// example call /withdraw_collateral 1 -> withdraws 1 usd from margin
+//bot function that calls modifyCollateral function to withdrawCollateral to account
 bot.onText(/\/withdraw_collateral (\d+)/, async (msg, match) => {
   const chatId = msg.chat.id;
-  let amount = BigInt(parseInt(match[1])) * BigInt(10 ** 18) * BigInt(-1); // Converts 1 to 1 * 10^18
+  let amount = ethers.parseUnits(match[1], 18); // Converts 1 to 1 * 10^18
+  amount = -amount;
   try {
 
-    const tx = await modifyCollateral(accountId, 0, amount);
+    const tx = await modifyCollateral(amount);
     bot.sendMessage(chatId, `Collateral succesfully withdrawn`);
 
   } catch (error) {
@@ -326,12 +347,11 @@ bot.onText(/\/place_order (\d+) (\d+) (\d+)/, async (msg, match) => {
     try {
 
         const orderType = parseInt(match[1]); // This could be 1 or 2
-        const marketId = BigInt(parseInt(match[2]) * 100); // Converts 2 to 200n
-
-        let sizeDelta = BigInt(match[3]) * BigInt(10 ** 10); // Converts 1 to 1 * 10^18
+        const marketId = ethers.parseUnits(match[2], 2); // Converts 2 to 200n
+        let sizeDelta = ethers.parseUnits(match[3], 10); // Converts 1 to 1 * 10^18
         let acceptablePrice = await fetchPriceUpdate() - 10000000000; // current price - 100usd
         if(orderType === 2){
-          sizeDelta = sizeDelta * BigInt(-1);
+          sizeDelta = -sizeDelta;
           acceptablePrice = acceptablePrice + 20000000000;
         }
         
@@ -350,7 +370,7 @@ bot.onText(/\/place_order (\d+) (\d+) (\d+)/, async (msg, match) => {
             acceptablePrice,
             trackingCode,
             referrer
-          };
+          }; 
 
         //Step 2: Commit the order using the smart contract
         const transaction = await polyContract.commitOrder(commitmentData);
@@ -365,3 +385,17 @@ bot.onText(/\/place_order (\d+) (\d+) (\d+)/, async (msg, match) => {
     }
 });
 
+
+//const wallet = createWalletFromTelegramID(1017458808);
+
+ getRequiredMarginForOrder();
+ getAvailableMargin(accountId);
+//getOrderFees();
+//const tx = polyContract.modifyCollateral(accountId, 0, -1000000000000000000000n);
+//console.log(`Collateral modified successfully. Transaction hash: ${tx.hash}`);
+
+
+
+// bot.on('message', (msg) => {
+//     console.log('Message received:', msg); // Log received messages to the console
+// });
