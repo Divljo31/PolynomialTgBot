@@ -221,7 +221,7 @@ async function getAccountOpenPosition(accountId, marketId){
   try{
 
     const openPosition = await polyContract.getOpenPosition(accountId, 200n);
-    console.log(openPosition);
+    //console.log(openPosition);
     return openPosition;
 
 } catch (error) {
@@ -336,7 +336,7 @@ bot.onText(/\/approve/, async (msg) => {
   const chatId = msg.chat.id;
   try {
     const balance = await approveSpending(polyContract);
-    bot.sendMessage(chatId, `Funds approved. TxHash: ${balance.transactionHash}`);
+    bot.sendMessage(chatId, `Funds approved.`);
   } catch (error) {
     bot.sendMessage(chatId, `failed to approve: ${error.message}`);
   }
@@ -408,10 +408,10 @@ bot.onText(/\/place_order (\d+) (\d+) (\d+)/, async (msg, match) => {
         const orderType = parseInt(match[1]); // This could be 1 or 2
         const marketId = ethers.parseUnits(match[2], 2); // Converts 2 to 200n
         let sizeDelta = ethers.parseUnits(match[3], 10); // Converts 1 to 1 * 10^18
-        let acceptablePrice = await fetchPriceUpdate() - 2000000000000000000n; // current price - 2usd
+        let acceptablePrice = await fetchPriceUpdate(); // current price - 2usd
         if(orderType === 2){
           sizeDelta = parseUnits(-sizeDelta, 18);
-          let acceptablePrice = acceptablePrice + 4000000000000000000n;
+          let acceptablePrice = acceptablePrice;
         }
         
         // Additional parameters for commitmentData
