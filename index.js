@@ -262,13 +262,12 @@ async function checkPriceAlerts() {
 }
 
 
-
-
 //Initialialize bot 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
 
-// bot function that says hello 
+// bot function that creates wallet from tgID
+// /example /get_started
 bot.onText(/\/get_started/, async (msg) => {
     const chatId = msg.chat.id;
     const name = msg.from.first_name || "there"; // Get the user's first name
@@ -282,6 +281,7 @@ bot.onText(/\/get_started/, async (msg) => {
 });
 
 // bot function that triggers createAccount function and creates trading account
+// example /create_account 
 bot.onText(/\/create_account/, async (msg) => {
     const chatId = msg.chat.id;
     try {
@@ -294,6 +294,7 @@ bot.onText(/\/create_account/, async (msg) => {
 });
 
 // bot function that fetches open positions
+// /get_positions returns open positions format totalPnl, accruedFunding, positionSize, owedInterest
 bot.onText(/\/get_positions/, async (msg) => {
   const chatId = msg.chat.id;
   try {
@@ -305,6 +306,7 @@ bot.onText(/\/get_positions/, async (msg) => {
 });
 
 // bot function that gets orders
+// /get_orders
 bot.onText(/\/get_orders/, async (msg) => {
   const chatId = msg.chat.id;
   try {
@@ -316,6 +318,7 @@ bot.onText(/\/get_orders/, async (msg) => {
 });
 
 // bot function that checks balance
+// /get_balance
 bot.onText(/\/get_balance/, async (msg) => {
   const chatId = msg.chat.id;
   try {
@@ -328,6 +331,7 @@ bot.onText(/\/get_balance/, async (msg) => {
 
 
 // bot function that approves spending fxUSD balance
+// /approve approves spending fxUSD
 bot.onText(/\/approve/, async (msg) => {
   const chatId = msg.chat.id;
   try {
@@ -339,6 +343,7 @@ bot.onText(/\/approve/, async (msg) => {
 });
 
 // bot function that sets alert on ETH price
+// example /set_alert 3200 trigers message when eth price hits 3200
 bot.onText(/\/set_alert (.+)/, (msg, match) => {
   const chatId = msg.chat.id;
   const targetPrice = ethers.parseUnits(match[1], 8);
@@ -354,6 +359,7 @@ bot.onText(/\/set_alert (.+)/, (msg, match) => {
 
 
 //bot function that calls modifyCollateral function to addCollateral to account
+// example /add_collateral usd amount
 bot.onText(/\/add_collateral (\d+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   let amount = ethers.parseUnits(match[1], 18); // Converts 1 to 1 * 10^18
@@ -371,6 +377,7 @@ bot.onText(/\/add_collateral (\d+)/, async (msg, match) => {
 });
 
 //bot function that calls modifyCollateral function to withdrawCollateral to account
+// example /withdraw_collateral usd amount
 bot.onText(/\/withdraw_collateral (\d+)/, async (msg, match) => {
   const chatId = msg.chat.id;
   let amount = ethers.parseUnits(match[1], 18) * BigInt(-1); // Converts 1 to 1 * 10^18
