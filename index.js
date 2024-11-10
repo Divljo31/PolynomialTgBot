@@ -5,6 +5,7 @@ const axios = require('axios');
 const crypto = require('crypto');
 const { Chain, createPublicClient, http, Hex, parseUnits, maxUint128, stringToBytes, } = require('viem');
 const { ethers } = require("ethers");
+const { parse } = require('path');
 
 
 //Global constants
@@ -16,6 +17,9 @@ const provider = new ethers.JsonRpcProvider(TESTNET_RPC);
 let signer; 
 let polyContract;
 let accountId;
+const alertTargets = {}; // Store target prices for alerts by chatId
+let previousETHprice;
+
 
 // Initialize the HermesClient with the desired endpoint
 const hermes = new HermesClient('https://hermes.pyth.network');
@@ -240,6 +244,26 @@ async function getRequiredMarginForOrder(){
   }  
 }
 
+// Function that check the price fo eth and trigers alert
+async function checkPriceAlerts() {
+  const currentPrice = await fetchPriceUpdate();
+  if (!currentPrice) return;
+
+  Object.keys(alertTargets).forEach(chatId => {
+    const targetPrice = alertTargets[chatId];
+    if ((currentPrice >= targetPrice && previousETHprice < targetPrice) || // Upwards alert
+        (currentPrice <= targetPrice && previousETHprice > targetPrice)) { // Downwards alert
+      bot.sendMessage(chatId, `Alert! ETH has reached your target price of ${ethers.formatUnits(targetPrice, 8)} USD. Current price: ${ethers.formatUnits(currentPrice, 8)} USD`);
+      delete alertTargets[chatId]; // Remove the alert after notification
+    }
+  });
+
+  previousETHprice = currentPrice; // Update for the next check
+}
+
+
+
+
 //Initialialize bot 
 const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN, { polling: true });
 
@@ -314,6 +338,18 @@ bot.onText(/\/approve/, async (msg) => {
   }
 });
 
+// bot function that sets alert on ETH price
+bot.onText(/\/set_alert (.+)/, (msg, match) => {
+  const chatId = msg.chat.id;
+  const targetPrice = ethers.parseUnits(match[1], 8);
+
+  if (targetPrice === null) {
+    bot.sendMessage(chatId, 'Invalid price. Please provide a valid target price.');
+  } else {
+    alertTargets[chatId] = targetPrice;
+    bot.sendMessage(chatId, `Alert set! You will be notified when ETH reaches ${match[1]}.`);
+  }
+});
 
 
 
@@ -365,9 +401,10 @@ bot.onText(/\/place_order (\d+) (\d+) (\d+)/, async (msg, match) => {
         const orderType = parseInt(match[1]); // This could be 1 or 2
         const marketId = ethers.parseUnits(match[2], 2); // Converts 2 to 200n
         let sizeDelta = ethers.parseUnits(match[3], 10); // Converts 1 to 1 * 10^18
-        let acceptablePrice = await fetchPriceUpdate(); // current price - 100usd
+        let acceptablePrice = await fetchPriceUpdate() - 2000000000000000000n; // current price - 2usd
         if(orderType === 2){
           sizeDelta = parseUnits(-sizeDelta, 18);
+          let acceptablePrice = acceptablePrice + 4000000000000000000n;
         }
         
         // Additional parameters for commitmentData
@@ -400,3 +437,5 @@ bot.onText(/\/place_order (\d+) (\d+) (\d+)/, async (msg, match) => {
     }
 });
 
+// Set an interval to check for price alerts every 2 seconds
+setInterval(checkPriceAlerts, 2000); // Check every 2 seconds
